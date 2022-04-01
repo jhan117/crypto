@@ -57,7 +57,7 @@ def post_message(token, channel, text):
 tickers = pyupbit.get_tickers(fiat="KRW")
 
 # slack API
-myToken = "xoxb-3225469601255-3263838475088-VZRaGr2KX5Ixh535K2hm4Sq8"
+myToken = "xoxb-3225469601255-3263838475088-bogdeGFtpcBfYEA9aasc2vFY"
 channel_ID = "C0372227ML2"
 
 post_message(myToken, channel_ID, "----Start----")
@@ -70,4 +70,4 @@ while True:
             if open:
                 post_message(myToken, channel_ID, ticker + "is open point")
     except:
-        post_message(myToken, channel_ID, "----Stop----")
+        pass
