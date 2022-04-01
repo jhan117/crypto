@@ -1,9 +1,11 @@
+from time import sleep
 import pandas as pd
 import pyupbit
 import discord
 import asyncio
 import os
 from dotenv import load_dotenv
+import time
 
 load_dotenv()
 token = os.getenv('TOKEN')
@@ -67,16 +69,16 @@ async def on_message(message):
     if message.author == client.user:
         return
 
-    if message.content.startswith('$Start'):
+    if message.content.startswith('$start'):
         while True:
             try:
                 for ticker in tickers:
                     current = pyupbit.get_current_price(ticker)
                     open = get_open(ticker, current)
                     if open:
-                        await message.channel.send(ticker + "is open!")
+                        await message.channel.send(ticker + " is open!")
                     else:
-                        await message.channel.send(ticker + "is not open!")
+                        await message.channel.send(ticker + " is not open!")
             except:
                 pass
 
