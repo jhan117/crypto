@@ -57,7 +57,7 @@ def post_message(token, channel, text):
 tickers = pyupbit.get_tickers(fiat="KRW")
 
 # slack API
-myToken = "xoxb-3225469601255-3263838475088-QwvUATNCfh6Pjd8Z2Gfj1cDx"
+myToken = "xoxb-3225469601255-3263838475088-VZRaGr2KX5Ixh535K2hm4Sq8"
 channel_ID = "C0372227ML2"
 
 post_message(myToken, channel_ID, "----Start----")
