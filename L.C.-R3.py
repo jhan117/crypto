@@ -1,6 +1,12 @@
-import requests
 import pandas as pd
 import pyupbit
+import discord
+import asyncio
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+token = os.getenv('TOKEN')
 
 
 def get_open(ticker, currentPrice):
@@ -46,28 +52,32 @@ def get_open(ticker, currentPrice):
     return openCheck
 
 
-def post_message(token, channel, text):
-    response = requests.post("https://slack.com/api/chat.postMessage",
-                             headers={"Authorization": "Bearer "+token},
-                             data={"channel": channel, "text": text}
-                             )
-
-
 # ticker = "KRW-TRX"
 tickers = pyupbit.get_tickers(fiat="KRW")
+client = discord.Client()
 
-# slack API
-myToken = "xoxb-3225469601255-3263838475088-bogdeGFtpcBfYEA9aasc2vFY"
-channel_ID = "C0372227ML2"
 
-post_message(myToken, channel_ID, "----Start----")
+@client.event
+async def on_ready():
+    print('We have logged in as {0.user}'.format(client))
 
-while True:
-    try:
-        for ticker in tickers:
-            current = pyupbit.get_current_price(ticker)
-            open = get_open(ticker, current)
-            if open:
-                post_message(myToken, channel_ID, ticker + "is open point")
-    except:
-        pass
+
+@client.event
+async def on_message(message):
+    if message.author == client.user:
+        return
+
+    if message.content.startswith('$Start'):
+        while True:
+            try:
+                for ticker in tickers:
+                    current = pyupbit.get_current_price(ticker)
+                    open = get_open(ticker, current)
+                    if open:
+                        await message.channel.send(ticker + "is open!")
+                    else:
+                        await message.channel.send(ticker + "is not open!")
+            except:
+                pass
+
+client.run(token)
