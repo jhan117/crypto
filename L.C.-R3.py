@@ -51,15 +51,16 @@ def post_message(token, channel, text):
                              headers={"Authorization": "Bearer "+token},
                              data={"channel": channel, "text": text}
                              )
-    print(response)
 
 
 # ticker = "KRW-TRX"
 tickers = pyupbit.get_tickers(fiat="KRW")
 
 # slack API
-myToken = "xoxb-3225469601255-3263838475088-6muxJrmgjSWDXEZzufYjeQYH"
-post_message(myToken, "#lc-r3", "----Start----")
+myToken = "xoxb-3225469601255-3263838475088-QwvUATNCfh6Pjd8Z2Gfj1cDx"
+channel_ID = "C0372227ML2"
+
+post_message(myToken, channel_ID, "----Start----")
 
 while True:
     try:
@@ -67,6 +68,6 @@ while True:
             current = pyupbit.get_current_price(ticker)
             open = get_open(ticker, current)
             if open:
-                post_message(myToken, "#lc-r3", ticker + "is open point")
+                post_message(myToken, channel_ID, ticker + "is open point")
     except:
-        post_message(myToken, "#lc-r3", "----Stop----")
+        post_message(myToken, channel_ID, "----Stop----")
