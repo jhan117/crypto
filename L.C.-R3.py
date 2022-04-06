@@ -1,24 +1,15 @@
-from time import sleep
-import pandas as pd
 import pyupbit
 import discord
-import asyncio
 import os
+from discord.ext import commands
 from dotenv import load_dotenv
-import time
 
 load_dotenv()
 token = os.getenv('TOKEN')
 
 
-def get_open(ticker, currentPrice):
-    openCheck = False
+def get_rsi(ticker):
     df = pyupbit.get_ohlcv(ticker, count=600)  # 600 days
-
-    # moving average 200
-    window_ma = 200
-    df['ma200'] = df["close"].rolling(window=window_ma).mean()
-    ma200 = df['ma200'][-1]  # current ma200
 
     # RSI 2
     window_rsi = 2
@@ -45,7 +36,20 @@ def get_open(ticker, currentPrice):
             / window_rsi
     df['rs'] = df['avg_gain'] / df['avg_loss']
     df['rsi'] = 100 - (100 / (1.0 + df['rs']))
-    rsi = df['rsi'][-4:]
+
+    return df['rsi'][-4:]
+
+
+def get_open(ticker, currentPrice):
+    openCheck = False
+    df = pyupbit.get_ohlcv(ticker, count=600)  # 600 days
+
+    # moving average 200
+    window_ma = 200
+    df['ma200'] = df["close"].rolling(window=window_ma).mean()
+    ma200 = df['ma200'][-1]  # current ma200
+
+    rsi = get_rsi(ticker)
 
     if rsi[0] > rsi[1] > rsi[2] and ma200 < currentPrice:
         if rsi[0] <= 60 and rsi[3] <= 10:
@@ -54,32 +58,42 @@ def get_open(ticker, currentPrice):
     return openCheck
 
 
-# ticker = "KRW-TRX"
+def get_close(ticker):
+    closeCheck = False
+    rsi = get_rsi(ticker)
+
+    if rsi[3] > 70:
+        closeCheck = True
+
+    return closeCheck
+
+
 tickers = pyupbit.get_tickers(fiat="KRW")
-client = discord.Client()
+activity = discord.Game(name="Trading Crypto")
+bot = commands.Bot(command_prefix='!', activity=activity,
+                   status=discord.Status.online)
+openList = []
 
 
-@client.event
+@bot.event
 async def on_ready():
-    print('We have logged in as {0.user}'.format(client))
+    print('Logged on as {0}!'.format(bot.user))
+    channel = bot.get_channel(959384498213122090)
 
+    await channel.send("Hi! I started trading.")
 
-@client.event
-async def on_message(message):
-    if message.author == client.user:
-        return
+    while True:
+        try:
+            for ticker in tickers:
+                current = pyupbit.get_current_price(ticker)
+                open = get_open(ticker, current)
+                close = get_close(ticker)
+                if open:
+                    buy = True
+                    await channel.send(ticker + " is open!")
+                elif close and buy:
+                    await channel.send(ticker + " is close!")
+        except:
+            print("It ended unexpectedly")
 
-    if message.content.startswith('$start'):
-        while True:
-            try:
-                for ticker in tickers:
-                    current = pyupbit.get_current_price(ticker)
-                    open = get_open(ticker, current)
-                    if open:
-                        await message.channel.send(ticker + " is open!")
-                    else:
-                        await message.channel.send(ticker + " is not open!")
-            except:
-                pass
-
-client.run(token)
+bot.run(token)
