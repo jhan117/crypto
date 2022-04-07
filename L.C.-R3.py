@@ -1,7 +1,10 @@
-import pyupbit
-import discord
 import os
+
+import pyupbit
+
+import discord
 from discord.ext import commands
+
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -83,17 +86,20 @@ async def on_ready():
     await channel.send("Hi! I started trading.")
 
     while True:
-        try:
-            for ticker in tickers:
+        for ticker in tickers:
+            try:
                 current = pyupbit.get_current_price(ticker)
                 open = get_open(ticker, current)
                 close = get_close(ticker)
-                if open:
-                    buy = True
-                    await channel.send(ticker + " is open!")
-                elif close and buy:
-                    await channel.send(ticker + " is close!")
-        except:
-            print("It ended unexpectedly")
+            except:
+                print(current, open, close)
+
+            if open:
+                await channel.send(ticker + " is open!")
+                await channel.send("I bought it for " + str(current))
+
+            if close:
+                await channel.send(ticker + " is close!")
+                await channel.send("I sold it for " + str(current))
 
 bot.run(token)
