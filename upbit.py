@@ -2,6 +2,14 @@ from ast import literal_eval
 import logging
 
 
+# Set logging level to DEBUG
+logging.basicConfig(
+    format='[%(levelname)s => %(filename)s:%(lineno)d][%(asctime)s]\n%(message)s',
+    datefmt='%Y/%m/%d %H:%M:%S',
+    level=logging.DEBUG
+)
+
+
 # --------------------------
 # - Name : get_env_var
 # - Desc : Read token and keys
@@ -19,7 +27,7 @@ def get_env_var(key):
         f.close()
 
         env_dict = literal_eval(line)
-        logging.debug(env_dict)
+        logging.debug("env var info: " + str(env_dict))
 
         return env_dict[key]
 
