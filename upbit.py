@@ -92,3 +92,46 @@ def send_request(reqMethod, reqUrl, reqParam, reqHeader):
 
     except Exception:
         raise
+
+
+'''
+- Name : get_crypto_list
+- Desc : get specified crypto list
+- Input
+    market: market to get crypto
+    excluded_crypto: crypto to be excluded
+- Output
+    list: crypto list what you want
+'''
+
+
+def get_crypto_list(market, excluded_crypto):
+    try:
+        crypto_list = []
+
+        markets = market.split(',')
+        excluded_cryptos = excluded_crypto.split(',')
+
+        url = 'https://api.upbit.com/v1/market/all'
+        query_param = {'isDetails': 'false'}
+        header = {"Accept": "application/json"}
+        response = send_request('GET', url, query_param, header)
+        data = response.json()
+
+        # filter market
+        for object in data:
+            for market in markets:
+                if object['market'].startswith(market):
+                    crypto_list.append(object)
+
+        # remove excluded crypto
+        for crypto in crypto_list:
+            for excluded_crypto in excluded_cryptos:
+                for market in markets:
+                    if crypto['market'] == market + '-' + excluded_crypto:
+                        crypto_list.remove(crypto)
+
+        return crypto_list
+
+    except Exception:
+        raise
