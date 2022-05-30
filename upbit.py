@@ -1,137 +1,100 @@
-from ast import literal_eval
 import logging
-import time
 import requests
-
+import asyncio
+import json
+from websockets import connect
+import uuid
 
 # Set logging level to DEBUG
 logging.basicConfig(
     format='[%(levelname)s => %(filename)s:%(lineno)d][%(asctime)s]\n%(message)s',
-    datefmt='%Y/%m/%d %H:%M:%S',
-    level=logging.DEBUG
+    datefmt='%Y/%m/%d %H:%M:%S'
 )
 
-
-'''
-- Name : get_env_var
-- Desc : Read token and keys
-- Input
-    Key : key of env.txt
-- Output
-    Value : value of key
-'''
+REST_API_url = 'https://api.upbit.com/v1/'
+WEBSOCKET_url = 'wss://api.upbit.com/websocket/v1'
 
 
-def get_env_var(key):
+# REST API 요청
+def REST_API(reqType, reqUrl, reqHeaders, reqParams):
     try:
-        path = './env/env.txt'
+        response = requests.request(
+            reqType, REST_API_url+reqUrl, headers=reqHeaders, params=reqParams)
 
-        f = open(path, 'r')
-        line = f.readline()
-        f.close()
-
-        env_dict = literal_eval(line)
-        logging.debug("env var info: " + str(env_dict))
-
-        return env_dict[key]
-
-    except Exception:
-        raise
+        return response.json()
+    except:
+        print("snapshot error")
 
 
-'''
-- Name : send_request
-- Desc : Handle request
-- Input
-    reqMethod: method of request (ex: get, post, put, delete)
-    reqUrl: the url of the request
-    reqHeader: headers to send to the specified url
-    reqParam: parameters to send to the specified url
-- Output
-    response: response to the HTTP request
-'''
+# KRW 마켓 코드 조회
+def get_krw_market():
+    market_response = REST_API(
+        'GET', 'market/all', {'Accept': 'application/json'}, {'isDetails': 'true'})
+
+    krw = []
+    for market in market_response:
+        if market["market"].startswith("KRW"):
+            krw.append(market["market"])
+    krw.sort()
+
+    return krw
 
 
-def send_request(reqMethod, reqUrl, reqParam, reqHeader):
-    try:
-        # time to wait for the number of requests available (second)
-        REQ_WAIT_TIME = 0.3
+# 시세 종목 조회 -> 마켓 코드 조회
+# output: dictionary
+# code = {market: [korean_name, english_name, market_warning], ...}
+def get_market_data():
+    market_response = REST_API(
+        'GET', 'market/all', {'Accept': 'application/json'}, {'isDetails': 'true'})
+
+    code = {}
+    for data in market_response:
+        code[data['market']] = [data['korean_name'],
+                                data['english_name'], data['market_warning']]
+
+    return code
+
+
+# 시세 Ticker 조회 -> 현재가 정보
+# input: market code
+def get_ticker_data(market):
+    ticker_response = REST_API(
+        'GET', 'ticker', {'Accept': 'application/json'}, {'markets': market})[0]
+
+    return ticker_response
+
+
+# 시세 캔들 조회 -> 일(Day) 캔들
+# input: market, to = None, count = 7, convertingPriceUnit = None
+def get_candles_days_data(market, to=None, count=7, convertingPriceUnit=None):
+    candles_days_response = REST_API(
+        'GET', 'candles/days', {'Accept': 'application/json'}, {'market': market, 'to': to, 'count': count, 'convertingPriceUnit': convertingPriceUnit})
+
+    return candles_days_response
+
+
+# websocket 요청
+# input: type, codes(list), stream_type("snapshot", "realtime")
+async def websocket(type, codes, stream_type=None):
+    async with connect(WEBSOCKET_url) as websocket:
+        type_field = {"type": type, "codes": codes}
+
+        if stream_type == "snapshot":
+            type_field["isOnlySnapshot"] = True
+        elif stream_type == "realtime":
+            type_field["isOnlyRealtime"] = True
+
+        data = [{"ticket": str(uuid.uuid4())}, type_field, {
+            "format": "SIMPLE"}]
+        await websocket.send(json.dumps(data))
 
         while True:
-            # request
-            response = requests.request(
-                reqMethod, reqUrl, params=reqParam, headers=reqHeader)
+            recv_data = await websocket.recv()
+            recv_data = recv_data.decode('utf8')
+            result = json.loads(recv_data)
 
-            # get the number of remaining requests
-            if 'Remaining-Req' in response.headers:
-                req_remaining = response.headers['Remaining-Req']
-                remaining_sec = req_remaining.split(';')[2].split('=')[1]
-            else:
-                logging.error('Error in headers received from the Request')
-                logging.error('Check headers ->', response.headers)
-                break
-
-            # for error prevention
-            if int(remaining_sec) < 3:
-                logging.debug('Caution! The left requests:', remaining_sec)
-                time.sleep(REQ_WAIT_TIME)
-
-            # response
-            if response.status_code == 200:
-                break
-            elif response.status_code == 429:
-                logging.error('Too many requests!')
-                time.sleep(REQ_WAIT_TIME)
-            else:
-                logging.error('response error:', str(response.status_code))
-                logging.error('Check response ->', response)
-                break
-            logging.info('Re-request...')
-
-        return response
-
-    except Exception:
-        raise
+            return result
 
 
-'''
-- Name : get_crypto_list
-- Desc : get specified crypto list
-- Input
-    market: market to get crypto
-    excluded_crypto: crypto to be excluded
-- Output
-    list: crypto list what you want
-'''
-
-
-def get_crypto_list(market, excluded_crypto):
-    try:
-        crypto_list = []
-
-        markets = market.split(',')
-        excluded_cryptos = excluded_crypto.split(',')
-
-        url = 'https://api.upbit.com/v1/market/all'
-        query_param = {'isDetails': 'false'}
-        header = {"Accept": "application/json"}
-        response = send_request('GET', url, query_param, header)
-        data = response.json()
-
-        # filter market
-        for object in data:
-            for market in markets:
-                if object['market'].startswith(market):
-                    crypto_list.append(object)
-
-        # remove excluded crypto
-        for crypto in crypto_list:
-            for excluded_crypto in excluded_cryptos:
-                for market in markets:
-                    if crypto['market'] == market + '-' + excluded_crypto:
-                        crypto_list.remove(crypto)
-
-        return crypto_list
-
-    except Exception:
-        raise
+if __name__ == "__main__":
+    asyncio.run(websocket("ticker", ["KRW-BTC"], "snapshot"))
